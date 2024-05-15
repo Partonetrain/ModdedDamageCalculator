@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modded MC Damage Calculator</title>
+    <style>
+        body {
+            background-color: cyan;
+        }
+
+        h1 {
+            color: blue;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        h2 {
+            color: blue;
+            font-family: 'Courier New', Courier, monospace;
+            text-align: center;
+        }
+        
+        p {
+            color: black;
+        }
+
+        .output{
+            text-align: center;
+        }
+
+        .numinput {
+            width: 50px;
+            text-align: right;
+        }
+        
+        .rbinput {
+            text-align: right;
+        }
+
+        .code{
+            border: 1px;
+            border-style: solid;
+            background-color: lightgray;
+            font-family: SFMono-Regular,Menlo,Monaco,Consolas,liberation mono,courier new,monospace;
+        }
+        
+        .gray{
+            color:gray;
+            background-color: darkgray;
+        }
+
+        .input-container{
+            margin: auto;
+            width: 95%;
+            padding-left: 10%;
+        }
+
+        .input-group {
+            display: inline-grid;
+            border:1px dashed;
+        }
+
+        .input-grid {
+            display: inline-grid;
+        }
+
+        .input-row {
+            border:1px solid;
+            padding: 5px;
+            display: grid;
+            grid-column: 1 / span 2;
+            grid-template-columns: subgrid;
+        }
+
+        .label-tooltip{
+            padding-right: 10px;
+        }
+
+        .input-row:nth-child(odd) {
+            background-color: #0001;
+        }
+
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            border-bottom: 1px dotted black;
+        }
+
+        /* Tooltip text */
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 250px;
+            background-color: black;
+            color: #fff;
+            text-align: center;
+            padding: 5px 0;
+            border-radius: 6px;
+            
+            /* Position the tooltip text - see examples below! */
+            position: absolute;
+            z-index: 1;
+        }
+
+        /* Show the tooltip text when you mouse over the tooltip container */
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+        }
+
+    </style>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <script>
+        var damageIn = 0;
+        var ignoreArmor = false;
+        var armorPierce = 0;
+        var armorShred = 0;
+        var protPierce = 0;
+        var protShred = 0;
+
+        var armor = 0;
+        var armorToughness = 0;
+        var prot = 0;
+        var resistance = 0;
+
+        var armorInputs;
+
+        $(document).ready(function() {
+            armorInputs = $(".armorInput").toArray();
+
+            if($("#resetRefresh").is(':checked')){
+                $(".resettable").val("");
+                $(".rbinput.resettable").prop("checked", false);
+            }
+            
+            console.log("ready");
+            update();
+        });
+
+        function update(){
+            damageIn = Number($("#dmgIn").val());
+            if($("#dmgType2").is(':checked')){
+                ignoreArmor = true;
+            }
+            else{
+                ignoreArmor = false;
+            }
+            grayOutArmorInputs(ignoreArmor);
+
+            armorPierce = Number($("#armorPierce").val());
+            armorShred = Number($("#armorShred").val());
+            protPierce = Number($("#protPierce").val());
+            protShred = Number($("#protShred").val());
+
+            armor = Number($("#armor").val());
+            armorToughness = Number($("#armorToughness").val());
+            prot = Number($("#prot").val());
+            resistance = Number($("#resistance").val());
+
+            debugPrint();
+            calc();
+        }
+
+        function debugPrint(){
+            console.log("damageIn " + damageIn);
+            console.log("ignoreArmor " + ignoreArmor);
+            console.log("armorPierce " + armorPierce);
+            console.log("armorShred " + armorShred);
+            console.log("protPierce " + protPierce);
+            console.log("protShred " + protShred);
+            console.log("armor " + armor);
+            console.log("armourToughness " + armorToughness);
+            console.log("prot " + prot);
+            console.log("res " + resistance);
+        }
+
+        function calc(){
+            var vDamage = $("#vDamage");
+
+            var vDamageReductionArmor = ignoreArmor ? 1 : (1-Math.min(20, Math.max(armor/5, armor - damageIn/(2+armorToughness/4))/25));
+            var vDamageReductionProt = (1-Math.min(prot,20)/25);
+            var vDamageReductionResistance = (1-Math.min(resistance,5)/5);
+            var vDamageAmount = damageIn*vDamageReductionArmor*vDamageReductionProt*vDamageReductionResistance;
+            vDamageAmount = vDamageAmount.toFixed(1); //round to 1 decimal place
+            vDamage.text(vDamageAmount + " out of " + damageIn + " or " + (100- ((vDamageAmount/damageIn)*100)).toFixed(1) + "% reduction");
+            
+            var mDamage = $("#mDamage");
+            var mProt = Math.max((prot *= 1 - protShred) - protPierce, 0);
+
+            var bypassResist = Math.min(armorToughness * 0.02, 0.6);
+            var mArmor = armor;
+            var mArmorShred = armorShred *= 1 - bypassResist;
+            mArmor *= Math.max(1 - mArmorShred, 0);
+            mArmorPierce = armorPierce * 1 - bypassResist;
+            mArmor -= Math.max(mArmorPierce, 0);
+
+            var mDamageReductionProt = 1 - Math.min(0.025 * mProt, 0.85); //Config: "Protection Formula"=1 - min(0.025 * protPoints, 0.85)
+            
+            var a = damageIn < 20 ? 10 : (10 + (damageIn-20) / 2); //Config: "A-Value Formula"=if(damage < 20, 10, 10 + (damage - 20) / 2)
+            console.log(a);
+            var mDamageReductionArmor = ignoreArmor ? 1 : a / (a + mArmor); //Config: "Armor Formula"=a / (a + armor)
+            var mDamageAmount = damageIn*mDamageReductionArmor*mDamageReductionProt*vDamageReductionResistance;
+            mDamageAmount = mDamageAmount.toFixed(1);
+            console.log("mDamageAmount " + mDamageAmount );
+
+            mDamage.text(mDamageAmount + " out of " + damageIn + " or " + (100- ((mDamageAmount/damageIn)*100)).toFixed(1) + "% reduction");
+        }
+
+        function armorPreset(armorValue, armorToughnessValue){
+            $("#armor").val(armorValue);
+            $("#armorToughness").val(armorToughnessValue);
+            update();
+        }
+
+        function protPreset(protValue){
+            $("#prot").val(protValue);
+            update();
+        }
+        
+        function grayOutArmorInputs(gray){
+            if(gray == true){
+                armorInputs.forEach(element => {
+                    element.classList.add("gray");
+                });
+            }
+            else{
+                armorInputs.forEach(element => {
+                    element.classList.remove("gray");
+                });
+            }
+        }
+
+    </script>
+</head>
+
+<body>
+    <h1>Modded Damage Calculator</h1>
+    <p>This is a calculator for the default damage reduction formulae in 
+        <a href="https://www.curseforge.com/minecraft/mc-mods/apothic-attributes">Apothic Attributes</a>/<a href="https://www.curseforge.com/minecraft/mc-mods/zenith-attributes">Zenith Attributes</a>.
+        Vanilla damage output provided for reference/comparison. If you want to use a different formula, <a href="https://github.com/partonetrain">modify the JS in this webpage</a>. Negative numbers are allowed for fun, but obviously produce inaccurate results.
+        <br>
+        <p class="output"><label title="resetRefresh">Reset values on page refresh?</label><input title="resetRefresh" type="checkbox" id="resetRefresh"/></p>
+    </p>
+
+    <div class ="input-container">
+    <div class="input-group">
+        <h2>Attacker</h2>
+        <div class="input-grid">
+            <div class="input-row">
+                <span class="label-tooltip">
+                    <label>Damage Input</label>
+                    <div class="tooltip">?
+                        <span class="tooltiptext">Measured in half-hearts. The Player has 20 health by default.</span>
+                    </div>
+                </span>
+                <input type="number" title="damageIn" class="numinput resettable" id="dmgIn" onchange="update()">
+            </div>
+            <div class="input-row">
+                <span class="label-tooltip">
+                    <label>Damage Type</label>
+                        <div class="tooltip">?
+                            <span class="tooltiptext">Only difference as far as the calculator is concerned is whether or not armor is ignored.</span>
+                        </div> 
+                </span>
+                <span>
+                    <input type="radio" id="dmgType1" id="dmgType1" name="dmgtype" class="rbinput resettable" onchange="update()" />
+                    <label for="dmgType1" class="rbinput resettable"><span class="code">player_attack</span>, <span class="code">arrow</span>, etc</label>
+                    <input type="radio" id="dmgType2" id="dmgType2" name="dmgtype" class="rbinput resettable" onchange="update()"/>
+                    <label for="dmgType2" class="rbinput resettable"><span class="code">generic</span>, <span class="code">magic</span>, etc</label>
+                </span>     
+            </div>
+            <div class="input-row">
+                <span class="label-tooltip">
+                    <label>Armor Pierce attribute</label>
+                    <div class="tooltip">?
+                        <span class="tooltiptext">(Modded) Flat reduction to armor value</span>
+                    </div> 
+                </span>
+                <input type="number" title="armorPierce" class="numinput armorInput resettable" id="armorPierce" onchange="update()">
+            </div>
+            <div class="input-row">
+                <span class="label-tooltip">
+                    <label>Armor Shred attribute</label>
+                    <div class="tooltip">?
+                        <span class="tooltiptext">(Modded) Reduction of armor value by percent. Resisted by Toughness. 1 = 100% armor shred.</span>
+                    </div> 
+                </span>
+                <input type="number" title="armorShred" class="numinput armorInput resettable" id="armorShred" onchange="update()" step="0.1">
+            </div>
+            <div class="input-row">
+                <span class="label-tooltip">
+                    <label>Prot Pierce attribute</label>
+                    <div class="tooltip">?
+                        <span class="tooltiptext">(Modded) Flat reduction to protection value</span>
+                    </div>
+                </span>
+                <input type="number" title="protPierce" class="numinput resettable" id="protPierce" onchange="update()">
+            </div>
+            <div class="input-row">
+                <span class="label-tooltip">
+                    <label>Prot Shred attribute</label>
+                    <div class="tooltip">?
+                        <span class="tooltiptext">(Modded) Reduction of protection by percent. 1 = 100% protection shred.</span>
+                    </div> 
+                </span>
+                <input type="number" title="protShred" class="numinput resettable" id="protShred" onchange="update()" step="0.1">
+            </div>
+        </div>
+    </div>
+
+    <div class="input-group">
+        <h2>Atackee</h2>
+        <div class="input-grid">
+            <div class="input-row">
+                <span class="label-tooltip">
+                    <label>Armor attribute</label>
+                </span>
+                <span>
+                    <input type="number" title="armor" class="numinput armorInput resettable" id="armor" onchange="update()">
+                    <input type="button" id="armorNone" class="armorInput" name="armorNone" value="None" onclick="armorPreset(0, 0)">
+                    <input type="button" id="armorZombie" class="armorInput" name="armorZombie" value="Zombie" onclick="armorPreset(2, 0)">
+                    <input type="button" id="armorIron" class="armorInput" name="armorIron" value="Iron" onclick="armorPreset(15, 0)">
+                    <input type="button" id="armorDiamond" class="armorInput" name="armorDiamond" value="Diamond" onclick="armorPreset(20, 8)">
+                    <input type="button" id="armorNetherite" class="armorInput" name="armorNetherite" value="Netherite" onclick="armorPreset(20, 12)">
+                </span>
+            </div>
+            <div class="input-row">
+                <span class="label-tooltip">
+                    <label>Armor Toughness attribute</label>
+                </span>
+                <input type="number" title="armorTougness" class="numinput armorInput resettable" id="armorToughness" onchange="update()">
+            </div>
+            <div class="input-row">
+                <span class="label-tooltip">
+                    <label>Protection value</label>
+                    <div class="tooltip">?
+                        <span class="tooltiptext">An internal "protection value", calculated as 1 point per level of Protection, or 2 points per level of Projectile/Blast protection. The calculator does not discern between types of protections; specific protections are only relevant in those situations. </span>
+                    </div>
+                </span>
+                <span>
+                    <input type="number" title="prot" class="numinput resettable" id="prot" onchange="update()">
+                    <input type="button" id="protNone" class="protInput" name="No Enchants" value="No Enchants" onclick="protPreset(0)">
+                    <input type="button" id="protProt4" class="protInput" name="Full Protection IV" value="Full Protection 4" onclick="protPreset(16)">
+                    <input type="button" id="protProjProt" class="protInput" name="Full Projectile Protection IV" value="Full Projectile Protection 4" onclick="protPreset(20)">   
+    
+                </span>
+            </div>
+            <div class="input-row">
+                <label>Resistance effect level</label>
+                <input type="number" title="resistance" class="numinput resettable" id="resistance" onchange="update()">
+            </div>
+        </div>
+    </div>
+    </div>
+    
+    <hr>
+
+    <div class="output">
+        <h2>Modded Damage</h2>
+        <p id="mDamage">idk</p>
+    </div>
+
+    <div class="output">
+        <h2>Vanilla Damage</h2>
+    <p id="vDamage">idk</p>
+    </div>
+    
+    
+</body>
+</html>
